@@ -179,6 +179,7 @@ thread_print_stats (void) {
 tid_t
 thread_create (const char *name, int priority,
 		thread_func *function, void *aux) {
+	printf("Creating thread: %s with priority %d\n", name, priority);
 	struct thread *t;
 	tid_t tid;
 
@@ -218,6 +219,7 @@ thread_create (const char *name, int priority,
    primitives in synch.h. */
 void
 thread_block (void) {
+	printf("Blocking thread: %s\n", thread_current()->name);
 	ASSERT (!intr_context ());
 	ASSERT (intr_get_level () == INTR_OFF);
 	thread_current ()->status = THREAD_BLOCKED;
@@ -234,6 +236,7 @@ thread_block (void) {
    update other data. */
 void
 thread_unblock (struct thread *t) {
+	printf("Unblocking thread: %s\n", t->name);
 	enum intr_level old_level;
 
 	ASSERT (is_thread (t));
@@ -296,6 +299,7 @@ thread_exit (void) {
    may be scheduled again immediately at the scheduler's whim. */
 void
 thread_yield (void) {
+	printf("Yielding thread: %s\n", thread_current()->name);
 	struct thread *curr = thread_current ();
 	enum intr_level old_level;
 
@@ -540,6 +544,7 @@ do_schedule(int status) {
 
 static void
 schedule (void) {
+	printf("Scheduling thread: %s -> %s\n", thread_current()->name, next_thread_to_run()->name);
 	struct thread *curr = running_thread ();
 	struct thread *next = next_thread_to_run ();
 

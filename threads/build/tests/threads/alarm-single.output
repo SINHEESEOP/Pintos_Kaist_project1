@@ -1,0 +1,19 @@
+Kernel command line: -q run alarm-single
+0 ~ 9fc00 1
+100000 ~ 13e0000 1
+Pintos booting with: 
+	base_mem: 0x0 ~ 0x9fc00 (Usable: 639 kB)
+	ext_mem: 0x100000 ~ 0x13e0000 (Usable: 19,328 kB)
+Creating thread: idle with priority 0
+Unblocking thread: idle
+Blocking thread: main
+Kernel PANIC at ../../threads/thread.c:270 in thread_current(): assertion `t->status == THREAD_RUNNING' failed.
+Call stack: 0x80042132ba 0x8004206f37 0x80042076a6 0x8004206d3d 0x800420982c 0x80042069ed 0x80042060df.
+The `backtrace' program can make call stacks useful.
+Read "Backtraces" in the "Debugging Tools" chapter
+of the Pintos documentation for more information.
+Timer: 0 ticks
+Thread: 0 idle ticks, 0 kernel ticks, 0 user ticks
+Console: 707 characters output
+Keyboard: 0 keys pressed
+Powering off...
