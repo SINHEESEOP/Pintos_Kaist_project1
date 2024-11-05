@@ -93,6 +93,8 @@ struct thread {
 	int priority;                       /* Priority. */
 	int64_t wakeup_tick;				/* tick till wake up */
 
+	int64_t created_tick;        /* 스레드 생성 시간 */
+
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 
@@ -144,6 +146,7 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 void do_iret (struct intr_frame *tf);
 
