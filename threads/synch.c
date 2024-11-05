@@ -32,52 +32,65 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
-/* Initializes semaphore SEMA to VALUE.  A semaphore is a
-   nonnegative integer along with two atomic operators for
-   manipulating it:
+/* 세마포어 SEMA를 VALUE로 초기화합니다. 세마포어는
+   음이 아닌 정수와 이를 조작하기 위한 두 개의 원자적 연산자로 구성됩니다:
 
-   - down or "P": wait for the value to become positive, then
-   decrement it.
+   - down 또는 "P": 값이 양수가 될 때까지 대기한 후
+   값을 감소시킵니다.
 
-   - up or "V": increment the value (and wake up one waiting
-   thread, if any). */
+   - up 또는 "V": 값을 증가시키고 (대기 중인 스레드가 있다면
+   그 중 하나를 깨웁니다). */
 void
 sema_init (struct semaphore *sema, unsigned value) {
-	ASSERT (sema != NULL);
+    // sema가 NULL이 아닌지 확인
+    ASSERT (sema != NULL);
 
-	sema->value = value;
-	list_init (&sema->waiters);
+    // 세마포어의 초기값을 설정
+    sema->value = value;
+    
+    // 세마포어를 기다리는 스레드들의 리스트 초기화
+    list_init (&sema->waiters);
 }
 
-/* Down or "P" operation on a semaphore.  Waits for SEMA's value
-   to become positive and then atomically decrements it.
+/* 세마포어에 대한 Down 또는 "P" 연산입니다. SEMA의 값이 양수가 될 때까지
+   대기한 후 원자적으로 값을 감소시킵니다.
 
-   This function may sleep, so it must not be called within an
-   interrupt handler.  This function may be called with
-   interrupts disabled, but if it sleeps then the next scheduled
-   thread will probably turn interrupts back on. This is
-   sema_down function. */
+   이 함수는 sleep 상태가 될 수 있으므로 인터럽트 핸들러 내에서 호출되어서는 안 됩니다.
+   인터럽트가 비활성화된 상태에서 이 함수를 호출할 수 있지만, 만약 sleep 상태가 되면
+   다음에 스케줄링되는 스레드가 인터럽트를 다시 활성화할 것입니다.
+   이것이 sema_down 함수입니다. */
 void
 sema_down (struct semaphore *sema) {
-	enum intr_level old_level;
+    // 인터럽트 상태를 저장할 변수 선언
+    enum intr_level old_level;
 
-	ASSERT (sema != NULL);
-	ASSERT (!intr_context ());
+    // sema가 NULL이 아닌지 확인
+    ASSERT (sema != NULL);
+    // 인터럽트 핸들러 내에서 호출되지 않았는지 확인 
+    ASSERT (!intr_context ());
 
-	old_level = intr_disable ();
-	while (sema->value == 0) {
-		list_push_back (&sema->waiters, &thread_current ()->elem);
-		thread_block ();
-	}
-	sema->value--;
-	intr_set_level (old_level);
+    // 인터럽트를 비활성화하고 이전 상태를 저장
+    old_level = intr_disable ();
+    
+    // 세마포어 값이 0이면 대기
+    while (sema->value == 0) {
+        // 현재 스레드를 대기 리스트 끝에 추가
+        list_push_back (&sema->waiters, &thread_current()->elem);
+        // 현재 스레드를 블록 상태로 변경
+        thread_block ();
+    }
+    
+    // 세마포어 값을 감소
+    sema->value--;
+    
+    // 이전 인터럽트 상태로 복원
+    intr_set_level (old_level);
 }
 
-/* Down or "P" operation on a semaphore, but only if the
-   semaphore is not already 0.  Returns true if the semaphore is
-   decremented, false otherwise.
+/* 세마포어가 이미 0이 아닌 경우에만 세마포어에 대한 Down 또는 "P" 연산을 수행합니다.
+   세마포어가 감소되면 true를 반환하고, 그렇지 않으면 false를 반환합니다.
 
-   This function may be called from an interrupt handler. */
+   이 함수는 인터럽트 핸들러에서 호출될 수 있습니다. */
 bool
 sema_try_down (struct semaphore *sema) {
 	enum intr_level old_level;

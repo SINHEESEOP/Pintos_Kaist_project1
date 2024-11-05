@@ -110,52 +110,63 @@ static void pic_end_of_interrupt (int irq);
 /* Interrupt handlers. */
 void intr_handler (struct intr_frame *args);
 
-/* Returns the current interrupt status. */
+/* 현재 인터럽트 상태를 반환합니다. */
 enum intr_level
 intr_get_level (void) {
-	uint64_t flags;
 
-	/* Push the flags register on the processor stack, then pop the
-	   value off the stack into `flags'.  See [IA32-v2b] "PUSHF"
-	   and "POP" and [IA32-v3a] 5.8.1 "Masking Maskable Hardware
-	   Interrupts". */
-	asm volatile ("pushfq; popq %0" : "=g" (flags));
+	uint64_t flags; // 플래그 레지스터 값을 저장할 변수
 
-	return flags & FLAG_IF ? INTR_ON : INTR_OFF;
+	/* 프로세서 스택에 플래그 레지스터를 푸시한 다음,
+	   스택의 값을 `flags'로 팝합니다. 참고: [IA32-v2b] "PUSHF"
+	   및 "POP", [IA32-v3a] 5.8.1 "마스크 가능한 하드웨어
+	   인터럽트 마스킹" */
+	asm volatile ("pushfq; popq %0" : "=g" (flags)); // 플래그 레지스터를 스택에 푸시하고 스택의 값을 flags로 팝함
+
+	return flags & FLAG_IF ? INTR_ON : INTR_OFF; // 인터럽트 플래그가 설정되어 있으면 INTR_ON, 그렇지 않으면 INTR_OFF 반환
 }
 
-/* Enables or disables interrupts as specified by LEVEL and
-   returns the previous interrupt status. */
+/* LEVEL에 따라 인터럽트를 활성화하거나 비활성화하고 이전 인터럽트 상태를 반환합니다. */
 enum intr_level
 intr_set_level (enum intr_level level) {
+	// level이 INTR_ON이면 인터럽트 활성화, INTR_OFF면 비활성화 함수 호출
 	return level == INTR_ON ? intr_enable () : intr_disable ();
 }
 
-/* Enables interrupts and returns the previous interrupt status. */
-enum intr_level
+/* 인터럽트를 활성화하고 이전 인터럽트 상태를 반환합니다. */
+enum intr_level 
 intr_enable (void) {
+	// 현재 인터럽트 상태를 저장
 	enum intr_level old_level = intr_get_level ();
+	
+	// 인터럽트 핸들러 내부가 아닌지 확인 
 	ASSERT (!intr_context ());
 
-	/* Enable interrupts by setting the interrupt flag.
-
-	   See [IA32-v2b] "STI" and [IA32-v3a] 5.8.1 "Masking Maskable
-	   Hardware Interrupts". */
+	/* 인터럽트 플래그를 설정하여 인터럽트를 활성화합니다.
+	   참고: [IA32-v2b] "STI" 및 [IA32-v3a] 5.8.1 "마스크 가능한 하드웨어
+	   인터럽트 마스킹" */
+	   
+	// STI(Set Interrupt Flag) 명령어로 인터럽트 활성화
 	asm volatile ("sti");
 
+	// 이전 인터럽트 상태 반환
 	return old_level;
 }
 
-/* Disables interrupts and returns the previous interrupt status. */
+/* 인터럽트를 비활성화하고 이전 인터럽트 상태를 반환합니다. */
 enum intr_level
 intr_disable (void) {
+	// 현재 인터럽트 상태를 저장
 	enum intr_level old_level = intr_get_level ();
 
-	/* Disable interrupts by clearing the interrupt flag.
-	   See [IA32-v2b] "CLI" and [IA32-v3a] 5.8.1 "Masking Maskable
-	   Hardware Interrupts". */
+	/* 인터럽트 플래그를 클리어하여 인터럽트를 비활성화합니다.
+	   참고: [IA32-v2b] "CLI" 및 [IA32-v3a] 5.8.1 "마스크 가능한 하드웨어 
+	   인터럽트 마스킹" */
+	   
+	// CLI(Clear Interrupt Flag) 명령어로 인터럽트 비활성화
+	// memory 제약 조건으로 컴파일러 최적화 방지
 	asm volatile ("cli" : : : "memory");
 
+	// 이전 인터럽트 상태 반환 
 	return old_level;
 }
 
