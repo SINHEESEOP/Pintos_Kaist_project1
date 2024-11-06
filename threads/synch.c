@@ -346,7 +346,7 @@ cond_wait (struct condition *cond, struct lock *lock) {
     waiter.thread = thread_current();  // 우선순위 비교를 위해 thread 저장
     
     // 대기자를 우선순위 순서로 대기자 리스트에 삽입
-    list_insert_ordered(&cond->waiters, &waiter.elem, cond_priority_compare, NULL);
+    list_insert_ordered(&cond->waiters, &waiter.elem, cmp_priority, NULL);
     
     lock_release(lock);                // 락을 해제하고
     sema_down(&waiter.semaphore);      // 대기자의 세마포어에서 블록
