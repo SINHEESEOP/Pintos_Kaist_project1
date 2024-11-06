@@ -211,9 +211,8 @@ thread_create (const char *name, int priority,
 	/* 실행 대기열에 추가 */
 	thread_unblock (t);                     // 스레드를 실행 가능 상태로 변경
 
-	// 생성된 스레드의 우선순위가 현재 실행 중인 스레드보다 높다면
-	if (priority > thread_current()->priority)
-		thread_yield();
+	// 선점 스케줄링 테스트
+	thread_test_preemption();
 
 	return tid;                             // 생성된 스레드의 ID 반환
 }
@@ -403,21 +402,10 @@ thread_set_priority (int new_priority) {
 
 	// 현재 스레드의 우선순위 변경
     thread_current()->priority = new_priority;
-    
-    /* 현재 스레드의 우선순위가 변경되었으므로
-       ready_list의 최대 우선순위 스레드와 비교하여 필요시 yield */
-    if (!list_empty(&ready_list)) {
-		// ready_list의 최대 우선순위 스레드 가져오기
-		struct thread *max_priority_thread = 
-            list_entry(list_begin(&ready_list), struct thread, elem);
-        
-		// 현재 스레드보다 높은 우선순위의 스레드가 있다면 yield
-		if (max_priority_thread->priority > thread_current()->priority)
-		/* 현재 스레드가 자원을 다른 스레드에게 양도함.
-			이 과정에서 현재 스레드는 블록 상태가 되고,
-			우선순위가 높은 스레드가 실행됨. */		
-            thread_yield();
-    }
+	
+	// 선점 스케줄링 테스트
+	thread_test_preemption();
+
 }
 
 /* 현재 스레드의 우선순위를 반환합니다. */
@@ -706,4 +694,22 @@ allocate_tid (void) {
 	lock_release (&tid_lock);
 
 	return tid;
+}
+
+void 
+thread_test_preemption (void) {
+	/* 현재 스레드의 우선순위가 변경되었으므로
+	   ready_list의 최대 우선순위 스레드와 비교하여 필요시 yield */
+	if (!list_empty(&ready_list)) {
+		// ready_list의 최대 우선순위 스레드 가져오기
+		struct thread *max_priority_thread = 
+			list_entry(list_begin(&ready_list), struct thread, elem);
+
+		// 현재 스레드보다 높은 우선순위의 스레드가 있다면 yield
+		if (max_priority_thread->priority > thread_current()->priority)
+		/* 현재 스레드가 자원을 다른 스레드에게 양도함.
+			이 과정에서 현재 스레드는 블록 상태가 되고,
+			우선순위가 높은 스레드가 실행됨. */		
+			thread_yield();
+	}
 }
