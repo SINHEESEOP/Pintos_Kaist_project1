@@ -319,8 +319,8 @@ void cond_init(struct condition *cond)
    이 함수는 sleep 상태가 될 수 있으므로 인터럽트 핸들러 내에서 호출될 수 없습니다.
    인터럽트가 비활성화된 상태에서 이 함수를 호출할 수 있지만,
    sleep이 필요한 경우 인터럽트가 다시 활성화됩니다. */
-void cond_wait(struct condition *cond, struct lock *lock)
-{
+void 
+cond_wait(struct condition *cond, struct lock *lock) {
     // 대기 중인 스레드를 관리하기 위한 세마포어 요소 구조체
     struct semaphore_elem waiter;
 
@@ -350,8 +350,18 @@ void cond_wait(struct condition *cond, struct lock *lock)
 
    인터럽트 핸들러는 락을 획득할 수 없으므로,
    인터럽트 핸들러 내에서 조건 변수에 시그널을 보내는 것은 의미가 없습니다. */
-void cond_signal(struct condition *cond, struct lock *lock UNUSED)
-{
+void 
+cond_signal(struct condition *cond, struct lock *lock UNUSED)  {
+    /* 조건 변수에서 대기 중인 스레드 하나를 깨우는 함수입니다.
+       매개변수:
+       - cond: 시그널을 보낼 조건 변수
+       - lock: 조건 변수와 연관된 락 (UNUSED 표시됨)
+       
+       동작 과정:
+       1. 매개변수와 실행 컨텍스트의 유효성을 검사합니다.
+       2. 대기자가 있는 경우, 우선순위가 가장 높은 스레드를 깨웁니다.
+       3. 깨울 때는 해당 스레드의 세마포어를 up 연산합니다. */
+
     // 매개변수 유효성 검사
     ASSERT(cond != NULL);                            // 조건 변수가 NULL이 아닌지 확인
     ASSERT(lock != NULL);                            // 락이 NULL이 아닌지 확인
@@ -360,10 +370,13 @@ void cond_signal(struct condition *cond, struct lock *lock UNUSED)
 
     // 대기 중인 스레드가 있는 경우
     if (!list_empty(&cond->waiters)) {
-        // 대기자 리스트의 첫 번째 스레드를 깨움
-        // list_pop_front로 대기자 리스트에서 제거하고
-        // list_entry로 해당 세마포어 요소의 주소를 얻어
-        // sema_up으로 세마포어 값을 증가시켜 스레드를 깨움
+        // 대기자 리스트를 우선순위 순으로 정렬
+        list_sort(&cond->waiters, cmp_priority, NULL);
+        
+        // 가장 높은 우선순위의 대기 스레드를 깨움:
+        // 1. list_pop_front로 첫 번째(최고 우선순위) 대기자를 제거
+        // 2. list_entry로 세마포어 요소의 주소를 얻음
+        // 3. sema_up으로 해당 스레드의 세마포어를 증가시켜 깨움
         sema_up(&list_entry(list_pop_front(&cond->waiters),
                             struct semaphore_elem, elem)
                     ->semaphore);
