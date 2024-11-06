@@ -59,8 +59,7 @@ void sema_init(struct semaphore *sema, unsigned value)
    인터럽트가 비활성화된 상태에서 이 함수를 호출할 수 있지만, 만약 sleep 상태가 되면
    다음에 스케줄링되는 스레드가 인터럽트를 다시 활성화할 것입니다.
    이것이 sema_down 함수입니다. */
-void sema_down(struct semaphore *sema)
-{
+void sema_down(struct semaphore *sema) {
 	// 인터럽트 상태를 저장할 변수 선언
 	enum intr_level old_level;
 
@@ -101,8 +100,7 @@ void sema_down(struct semaphore *sema)
    세마포어가 감소되면 true를 반환하고, 그렇지 않으면 false를 반환합니다.
 
    이 함수는 인터럽트 핸들러에서 호출될 수 있습니다. */
-bool sema_try_down(struct semaphore *sema)
-{
+bool sema_try_down(struct semaphore *sema) {
 	enum intr_level old_level;
 	bool success;
 
@@ -286,11 +284,14 @@ bool lock_held_by_current_thread(const struct lock *lock)
 	return lock->holder == thread_current();
 }
 
-/* One semaphore in a list. */
-struct semaphore_elem
-{
-	struct list_elem elem;		/* List element. */
-	struct semaphore semaphore; /* This semaphore. */
+/* 리스트에서 하나의 세마포어를 나타내는 구조체입니다.
+   조건 변수의 대기자 리스트에서 사용됩니다.
+   각 대기자는 자신만의 세마포어를 가지고 있어서
+   개별적으로 블록/깨우기가 가능합니다. */
+struct semaphore_elem {
+	struct list_elem elem;		/* 리스트 요소. 대기자 리스트에서 이 구조체를 연결하는데 사용됨 */
+	struct semaphore semaphore;	/* 이 대기자의 세마포어. 스레드를 블록하고 깨우는데 사용됨 */
+	struct thread *thread;  // 우선순위 비교를 위한 현재 스레드 포인터 추가
 };
 
 /* Initializes condition variable COND.  A condition variable
@@ -320,28 +321,36 @@ void cond_init(struct condition *cond)
    인터럽트가 비활성화된 상태에서 이 함수를 호출할 수 있지만,
    sleep이 필요한 경우 인터럽트가 다시 활성화됩니다. */
 void 
-cond_wait(struct condition *cond, struct lock *lock) {
-    // 대기 중인 스레드를 관리하기 위한 세마포어 요소 구조체
+cond_wait (struct condition *cond, struct lock *lock) {
+    /* 조건 변수에서 대기하는 함수입니다.
+       매개변수:
+       - cond: 대기할 조건 변수
+       - lock: 조건 변수와 연관된 락
+       
+       동작 과정:
+       1. 새로운 대기자(waiter) 구조체를 생성하여 초기화합니다.
+       2. 대기자를 조건 변수의 대기자 리스트에 우선순위 순서로 삽입합니다.
+       3. 락을 해제하고 대기자의 세마포어에서 블록됩니다.
+       4. 깨어난 후 락을 다시 획득합니다. */
+
     struct semaphore_elem waiter;
 
-    // 매개변수 유효성 검사
-    ASSERT(cond != NULL);                            // 조건 변수가 NULL이 아닌지 확인
-    ASSERT(lock != NULL);                            // 락이 NULL이 아닌지 확인
-    ASSERT(!intr_context());                         // 인터럽트 컨텍스트가 아닌지 확인
-    ASSERT(lock_held_by_current_thread(lock));       // 현재 스레드가 락을 보유하고 있는지 확인
+    // 매개변수와 실행 컨텍스트의 유효성 검사
+    ASSERT (cond != NULL);                          // 조건 변수가 NULL이 아닌지 확인
+    ASSERT (lock != NULL);                          // 락이 NULL이 아닌지 확인
+    ASSERT (!intr_context());                       // 인터럽트 컨텍스트가 아닌지 확인
+    ASSERT (lock_held_by_current_thread(lock));     // 현재 스레드가 락을 보유하고 있는지 확인
 
-    // 세마포어 초기화 (초기값 0으로 설정)
+    // 대기자의 세마포어를 0으로 초기화
     sema_init(&waiter.semaphore, 0);
-
-    // 대기자 리스트에 현재 스레드를 우선순위 순서로 삽입
-    // - 기존의 list_push_back 대신 우선순위 기반 정렬 삽입 사용
-    // - 우선순위가 높은 스레드가 먼저 깨어날 수 있도록 함
-    list_insert_ordered(&cond->waiters, &waiter.elem, cmp_priority, NULL);
+    waiter.thread = thread_current();  // 우선순위 비교를 위해 thread 저장
     
-    // 락을 해제하고 조건 변수에서 대기
-    lock_release(lock);                  // 다른 스레드가 락을 획득할 수 있도록 해제
-    sema_down(&waiter.semaphore);        // 세마포어에서 대기 (블록)
-    lock_acquire(lock);                  // 깨어난 후 락을 다시 획득
+    // 대기자를 우선순위 순서로 대기자 리스트에 삽입
+    list_insert_ordered(&cond->waiters, &waiter.elem, cond_priority_compare, NULL);
+    
+    lock_release(lock);                // 락을 해제하고
+    sema_down(&waiter.semaphore);      // 대기자의 세마포어에서 블록
+    lock_acquire(lock);                // 깨어난 후 락을 다시 획득
 }
 
 /* COND(조건 변수)에서 대기 중인 스레드가 있는 경우,
@@ -383,17 +392,45 @@ cond_signal(struct condition *cond, struct lock *lock UNUSED)  {
     }
 }
 
-/* Wakes up all threads, if any, waiting on COND (protected by
-   LOCK).  LOCK must be held before calling this function.
+/* COND(조건 변수)에서 대기 중인 모든 스레드를 깨웁니다.
+   이 함수를 호출하기 전에 반드시 LOCK을 보유하고 있어야 합니다.
 
-   An interrupt handler cannot acquire a lock, so it does not
-   make sense to try to signal a condition variable within an
-   interrupt handler. */
-void cond_broadcast(struct condition *cond, struct lock *lock)
-{
-	ASSERT(cond != NULL);
-	ASSERT(lock != NULL);
+   인터럽트 핸들러는 락을 획득할 수 없으므로,
+   인터럽트 핸들러 내에서 조건 변수에 시그널을 보내는 것은 의미가 없습니다.
+   
+   동작 과정:
+   1. 매개변수의 유효성을 검사합니다.
+   2. 대기자 리스트가 빌 때까지 반복하여 모든 대기 스레드를 깨웁니다.
+   3. 각 스레드를 깨울 때는 cond_signal 함수를 사용합니다. */
+// void cond_broadcast(struct condition *cond, struct lock *lock)
+// {
+// 	// 매개변수 유효성 검사
+// 	ASSERT(cond != NULL);		// 조건 변수가 NULL이 아닌지 확인
+// 	ASSERT(lock != NULL);		// 락이 NULL이 아닌지 확인
+// 	// 대기자 리스트가 빌 때까지 모든 스레드를 깨움
+// 	while (!list_empty(&cond->waiters))
+// 		cond_signal(cond, lock);	// cond_signal을 호출하여 한 번에 하나씩 깨움
+// }
 
-	while (!list_empty(&cond->waiters))
-		cond_signal(cond, lock);
+/* 조건 변수 브로드캐스트 - 모든 대기자에게 신호를 전송합니다.
+   condition variable broadcast - sends signal to all waiters
+
+   매개변수:
+   - cond: 시그널을 보낼 조건 변수
+   - lock: 조건 변수와 연관된 락
+
+   동작 과정:
+   1. 매개변수의 유효성을 검사합니다.
+   2. 대기자 리스트가 빌 때까지 반복하여 모든 대기 스레드를 깨웁니다.
+   3. 각 스레드를 깨울 때는 cond_signal 함수를 사용합니다. */
+void 
+cond_broadcast (struct condition *cond, struct lock *lock) {
+    // 매개변수 유효성 검사
+    ASSERT (cond != NULL);        // 조건 변수가 NULL이 아닌지 확인
+    ASSERT (lock != NULL);        // 락이 NULL이 아닌지 확인
+
+    // 대기자 리스트가 빌 때까지 모든 스레드를 깨움
+    while (!list_empty(&cond->waiters)) {
+        cond_signal(cond, lock);  // cond_signal을 호출하여 한 번에 하나씩 깨움
+    }
 }
