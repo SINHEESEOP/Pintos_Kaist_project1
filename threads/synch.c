@@ -344,24 +344,30 @@ void cond_wait(struct condition *cond, struct lock *lock)
     lock_acquire(lock);                  // 깨어난 후 락을 다시 획득
 }
 
-/* If any threads are waiting on COND (protected by LOCK), then
-   this function signals one of them to wake up from its wait.
-   LOCK must be held before calling this function.
+/* COND(조건 변수)에서 대기 중인 스레드가 있는 경우,
+   이 함수는 그 중 하나에게 깨어나라는 시그널을 보냅니다.
+   이 함수를 호출하기 전에 반드시 LOCK을 보유하고 있어야 합니다.
 
-   An interrupt handler cannot acquire a lock, so it does not
-   make sense to try to signal a condition variable within an
-   interrupt handler. */
+   인터럽트 핸들러는 락을 획득할 수 없으므로,
+   인터럽트 핸들러 내에서 조건 변수에 시그널을 보내는 것은 의미가 없습니다. */
 void cond_signal(struct condition *cond, struct lock *lock UNUSED)
 {
-	ASSERT(cond != NULL);
-	ASSERT(lock != NULL);
-	ASSERT(!intr_context());
-	ASSERT(lock_held_by_current_thread(lock));
+    // 매개변수 유효성 검사
+    ASSERT(cond != NULL);                            // 조건 변수가 NULL이 아닌지 확인
+    ASSERT(lock != NULL);                            // 락이 NULL이 아닌지 확인
+    ASSERT(!intr_context());                         // 인터럽트 컨텍스트가 아닌지 확인
+    ASSERT(lock_held_by_current_thread(lock));       // 현재 스레드가 락을 보유하고 있는지 확인
 
-	if (!list_empty(&cond->waiters))
-		sema_up(&list_entry(list_pop_front(&cond->waiters),
-							struct semaphore_elem, elem)
-					 ->semaphore);
+    // 대기 중인 스레드가 있는 경우
+    if (!list_empty(&cond->waiters)) {
+        // 대기자 리스트의 첫 번째 스레드를 깨움
+        // list_pop_front로 대기자 리스트에서 제거하고
+        // list_entry로 해당 세마포어 요소의 주소를 얻어
+        // sema_up으로 세마포어 값을 증가시켜 스레드를 깨움
+        sema_up(&list_entry(list_pop_front(&cond->waiters),
+                            struct semaphore_elem, elem)
+                    ->semaphore);
+    }
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
