@@ -10,12 +10,12 @@
 #endif
 
 
-/* States in a thread's life cycle. */
+/* 스레드의 생명주기에서 가능한 상태들 */
 enum thread_status {
-	THREAD_RUNNING,     /* Running thread. */
-	THREAD_READY,       /* Not running but ready to run. */
-	THREAD_BLOCKED,     /* Waiting for an event to trigger. */
-	THREAD_DYING        /* About to be destroyed. */
+	THREAD_RUNNING,     /* 실행 중인 상태 - CPU를 점유하여 실행되고 있는 스레드 */
+	THREAD_READY,       /* 준비 상태 - 실행할 준비가 되어 있지만 CPU를 할당받지 못한 상태 */
+	THREAD_BLOCKED,     /* 차단 상태 - I/O나 동기화 등의 이벤트를 기다리는 상태 */
+	THREAD_DYING        /* 종료 상태 - 실행이 끝나고 곧 제거될 예정인 상태 */
 };
 
 /* Thread identifier type.
