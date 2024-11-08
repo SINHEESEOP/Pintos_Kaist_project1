@@ -57,6 +57,7 @@ test_priority_fifo (void)
   lock_init (&lock);            /* 락 초기화 */
 
   /* 현재 스레드의 우선순위를 높임 */
+  // 34가 됨.
   thread_set_priority (PRI_DEFAULT + 2);
   
   /* THREAD_CNT 개수만큼 스레드 생성 */
@@ -70,6 +71,7 @@ test_priority_fifo (void)
       d->lock = &lock;                        /* 락 포인터 설정 */
       d->op = &op;                           /* 출력 버퍼 포인터 설정 */
       /* 새로운 스레드 생성 */
+      // 33 ~ 48 사이의 우선순위로 설정 후 총 16개의 스레드 생성
       thread_create (name, PRI_DEFAULT + 1, simple_thread_func, d);
     }
 
@@ -90,7 +92,7 @@ test_priority_fifo (void)
       d = data + *output;
       /* 각 반복의 시작에서 메시지 출력 */
       if (cnt % THREAD_CNT == 0)
-        printf ("(priority-fifo) iteration:");
+        printf ("(우선순위-선입선출) 반복:");
       printf (" %d", d->id);
       /* 각 반복의 끝에서 줄바꿈 */
       if (++cnt % THREAD_CNT == 0)
