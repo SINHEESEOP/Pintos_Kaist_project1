@@ -73,10 +73,10 @@ timer_calibrate (void) {
 /* Returns the number of timer ticks since the OS booted. */
 int64_t
 timer_ticks (void) {
-	enum intr_level old_level = intr_disable ();
-	int64_t t = ticks;
-	intr_set_level (old_level);
-	barrier ();
+	enum intr_level old_level = intr_disable (); // 하드웨어 인터럽트(전체) 비활성화
+	int64_t t = ticks; // 현재 틱 수
+	intr_set_level (old_level); // 하드웨어 인터럽트(전체) 활성화
+	barrier (); // 최적화 장벽
 	return t;
 }
 
@@ -89,9 +89,12 @@ timer_elapsed (int64_t then) {
 
 /* 스레드한테 재우라고 알람 울리기 */
 void
-timer_sleep (int64_t ticks) {			// ticks: 대기 시간
-	int64_t start = timer_ticks ();		// 현재 틱 == OS가 부팅된 이후 현재까지의 총 틱 수 == 현재 시간
-	thread_sleep(start + ticks);
+timer_sleep (int64_t ticks) { // ticks: 대기 시간
+
+	// 현재 틱 == OS가 부팅된 이후 현재까지의 총 틱 수 == 현재 시간
+
+	int64_t start = timer_ticks (); // 현재 틱
+	thread_sleep(start + ticks); // 현재 틱 + 대기 시간
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -119,11 +122,14 @@ timer_print_stats (void) {
 }
 
 /* Timer interrupt handler. 
-	-> 매 tick마다 호출되며, 대기 중인 스레드 중에서 깨어날 시간이 된 스레드를 찾아 ready_list로 이동시킴 */
+	-> 매 tick마다 호출되며, 
+	대기 중인 스레드 중에서 깨어날 시간이 된 스레드를 찾아 ready_list로 이동시킴 */
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
-	ticks++;
-	thread_tick ();		// update the cpu usage for running process
+	ticks++; // 틱 증가
+	thread_tick ();		// 실행 중인 프로세스의 CPU 사용량 업데이트
+	
+	// 대기 중인 스레드 중에서 깨어날 시간이 된 스레드를 찾아 ready_list로 이동시킴
 	thread_awake(ticks);
 }
 
@@ -158,28 +164,33 @@ busy_wait (int64_t loops) {
 		barrier ();
 }
 
-/* Sleep for approximately NUM/DENOM seconds. */
+/* NUM/DENOM 초 동안 대략적으로 sleep 합니다. */
 static void
 real_time_sleep (int64_t num, int32_t denom) {
-	/* Convert NUM/DENOM seconds into timer ticks, rounding down.
+	/* NUM/DENOM 초를 timer tick으로 변환합니다. (내림)
+	   
+	   (NUM / DENOM) 초
+	   ---------------------- = NUM * TIMER_FREQ / DENOM ticks
+	   1초 / TIMER_FREQ ticks
+	*/
+	
+	// num/denom 초가 몇 tick인지 계산
+	// TIMER_FREQ는 1초당 발생하는 tick 수
+	int64_t ticks = num * TIMER_FREQ / denom;
 
-	   (NUM / DENOM) s
-	   ---------------------- = NUM * TIMER_FREQ / DENOM ticks.
-	   1 s / TIMER_FREQ ticks
-	   */
-	int64_t ticks = num * TIMER_FREQ / denom;		// num/denom이 몇 tick인지 구하는 식  (TIMER_FREQ: 1초동안 발생하는 tick 수)
-
+	// 인터럽트가 켜져있는지 확인, 인터럽트가 꺼져 있으면 강제 종료
 	ASSERT (intr_get_level () == INTR_ON);
+	
 	if (ticks > 0) {
-		/* We're waiting for at least one full timer tick.  Use
-		   timer_sleep() because it will yield the CPU to other
-		   processes. */
+		/* 최소 1 tick 이상 대기해야 하는 경우
+		   다른 프로세스에게 CPU를 양보하기 위해 timer_sleep() 사용 */
 		timer_sleep (ticks);
 	} else {
-		/* Otherwise, use a busy-wait loop for more accurate
-		   sub-tick timing.  We scale the numerator and denominator
-		   down by 1000 to avoid the possibility of overflow. */
+		/* 1 tick 미만으로 대기하는 경우 busy-wait 루프 사용
+		   더 정확한 sub-tick 타이밍을 위해
+		   오버플로우 방지를 위해 분자와 분모를 1000으로 나눔 */
 		ASSERT (denom % 1000 == 0);
-		busy_wait (loops_per_tick * num / 1000 * TIMER_FREQ / (denom / 1000));
+		// busy_wait으로 정확한 시간 대기
+		busy_wait (loops_per_tick * num / 1000 * TIMER_FREQ / (denom / 1000)); 
 	}
 }

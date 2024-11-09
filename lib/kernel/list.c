@@ -374,36 +374,36 @@ inplace_merge (struct list_elem *a0, struct list_elem *a1b0,
 		}
 }
 
-/* Sorts LIST according to LESS given auxiliary data AUX, using a
-   natural iterative merge sort that runs in O(n lg n) time and
-   O(1) space in the number of elements in LIST. */
+/* LIST를 보조 데이터 AUX를 사용하는 LESS 함수에 따라 정렬합니다.
+   자연 반복 병합 정렬을 사용하며, LIST의 요소 수에 대해 
+   O(n lg n)의 시간과 O(1)의 공간을 사용합니다. */
 void
 list_sort (struct list *list, list_less_func *less, void *aux) {
-	size_t output_run_cnt;        /* Number of runs output in current pass. */
+	size_t output_run_cnt;        /* 현재 패스에서 출력된 런의 개수 */
 
 	ASSERT (list != NULL);
 	ASSERT (less != NULL);
 
-	/* Pass over the list repeatedly, merging adjacent runs of
-	   nondecreasing elements, until only one run is left. */
+	/* 하나의 런만 남을 때까지 리스트를 반복적으로 순회하면서
+	   인접한 비감소 런들을 병합합니다. */
 	do {
-		struct list_elem *a0;     /* Start of first run. */
-		struct list_elem *a1b0;   /* End of first run, start of second. */
-		struct list_elem *b1;     /* End of second run. */
+		struct list_elem *a0;     /* 첫 번째 런의 시작 */
+		struct list_elem *a1b0;   /* 첫 번째 런의 끝, 두 번째 런의 시작 */
+		struct list_elem *b1;     /* 두 번째 런의 끝 */
 
 		output_run_cnt = 0;
 		for (a0 = list_begin (list); a0 != list_end (list); a0 = b1) {
-			/* Each iteration produces one output run. */
+			/* 각 반복마다 하나의 출력 런을 생성합니다. */
 			output_run_cnt++;
 
-			/* Locate two adjacent runs of nondecreasing elements
-			   A0...A1B0 and A1B0...B1. */
+			/* 비감소 순서인 두 개의 인접한 런을 찾습니다.
+			   A0...A1B0와 A1B0...B1 */
 			a1b0 = find_end_of_run (a0, list_end (list), less, aux);
 			if (a1b0 == list_end (list))
 				break;
 			b1 = find_end_of_run (a1b0, list_end (list), less, aux);
 
-			/* Merge the runs. */
+			/* 런들을 병합합니다. */
 			inplace_merge (a0, a1b0, b1, less, aux);
 		}
 	}
@@ -412,22 +412,24 @@ list_sort (struct list *list, list_less_func *less, void *aux) {
 	ASSERT (is_sorted (list_begin (list), list_end (list), less, aux));
 }
 
-/* Inserts ELEM in the proper position in LIST, which must be
-   sorted according to LESS given auxiliary data AUX.
-   Runs in O(n) average case in the number of elements in LIST. */
+/* ELEM을 LIST의 적절한 위치에 삽입합니다. LIST는 AUX를 보조 데이터로 사용하는 
+   LESS 함수에 따라 정렬되어 있어야 합니다.
+   LIST의 요소 수에 대해 평균적으로 O(n)의 시간이 걸립니다. */
 void
 list_insert_ordered (struct list *list, struct list_elem *elem,
 		list_less_func *less, void *aux) {
-	struct list_elem *e;
+	struct list_elem *e;  // 리스트를 순회할 때 사용할 포인터
 
-	ASSERT (list != NULL);
-	ASSERT (elem != NULL);
-	ASSERT (less != NULL);
+	// 매개변수 유효성 검사
+	ASSERT (list != NULL);  // list가 NULL이 아닌지 확인
+	ASSERT (elem != NULL);  // elem이 NULL이 아닌지 확인  
+	ASSERT (less != NULL);  // less 함수가 NULL이 아닌지 확인
 
+	// 리스트를 순회하면서 elem이 들어갈 적절한 위치 찾기
 	for (e = list_begin (list); e != list_end (list); e = list_next (e))
-		if (less (elem, e, aux))
-			break;
-	return list_insert (e, elem);
+		if (less (elem, e, aux))  // elem이 현재 요소보다 작으면
+			break;                 // 현재 위치가 삽입 위치
+	return list_insert (e, elem);  // 찾은 위치에 elem 삽입
 }
 
 /* Iterates through LIST and removes all but the first in each

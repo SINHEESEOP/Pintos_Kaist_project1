@@ -10,12 +10,12 @@
 #endif
 
 
-/* States in a thread's life cycle. */
+/* 스레드의 생명주기에서 가능한 상태들 */
 enum thread_status {
-	THREAD_RUNNING,     /* Running thread. */
-	THREAD_READY,       /* Not running but ready to run. */
-	THREAD_BLOCKED,     /* Waiting for an event to trigger. */
-	THREAD_DYING        /* About to be destroyed. */
+	THREAD_RUNNING,     /* 실행 중인 상태 - CPU를 점유하여 실행되고 있는 스레드 */
+	THREAD_READY,       /* 준비 상태 - 실행할 준비가 되어 있지만 CPU를 할당받지 못한 상태 */
+	THREAD_BLOCKED,     /* 차단 상태 - I/O나 동기화 등의 이벤트를 기다리는 상태 */
+	THREAD_DYING        /* 종료 상태 - 실행이 끝나고 곧 제거될 예정인 상태 */
 };
 
 /* Thread identifier type.
@@ -23,10 +23,10 @@ enum thread_status {
 typedef int tid_t;
 #define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
 
-/* Thread priorities. */
-#define PRI_MIN 0                       /* Lowest priority. */
-#define PRI_DEFAULT 31                  /* Default priority. */
-#define PRI_MAX 63                      /* Highest priority. */
+/* 스레드 우선순위 */
+#define PRI_MIN 0                       /* 최소 우선순위 */
+#define PRI_DEFAULT 31                  /* 기본 우선순위 */
+#define PRI_MAX 63                      /* 최대 우선순위 */
 
 /* A kernel thread or user process.
  *
@@ -97,6 +97,8 @@ struct thread {
 	struct list_elem donation_elem;		/* 도네이션 리스트의 엘리먼트 */
 	struct lock *waiting_lock;			/* 얻기 위해 기다리고있는 락 */
 
+	int64_t created_tick;        /* 스레드 생성 시간 */
+
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 
@@ -151,7 +153,10 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 void do_iret (struct intr_frame *tf);
+
+void thread_test_preemption (void);
 
 #endif /* threads/thread.h */
