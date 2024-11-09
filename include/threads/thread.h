@@ -91,10 +91,17 @@ struct thread {
 	enum thread_status status;          /* Thread state. */
 	char name[16];                      /* Name (for debugging purposes). */
 	int priority;                       /* Priority. */
+	int original_pri;
 	int64_t wakeup_tick;				/* tick till wake up */
+	struct list donations;				/* 우선순위를 기부해준 쓰레드들 */
+	struct list_elem donation_elem;		/* 도네이션 리스트의 엘리먼트 */
+	struct lock *waiting_lock;			/* 얻기 위해 기다리고있는 락 */
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
+
+	int nice;
+	int recent_cpu;
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -114,6 +121,7 @@ struct thread {
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
+bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 void thread_init (void);
 void thread_start (void);
@@ -126,6 +134,8 @@ tid_t thread_create (const char *name, int priority, thread_func *, void *);
 
 void thread_sleep(int64_t);		// 쓰레드 재우기: ready_list -> sleep_list
 void thread_awake(int64_t);		// 쓰레드 깨우기: sleep_list -> ready_list
+
+void thread_preemption();		// 선점 호출 함수
 
 void thread_block (void);
 void thread_unblock (struct thread *);
