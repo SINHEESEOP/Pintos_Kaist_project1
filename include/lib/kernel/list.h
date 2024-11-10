@@ -83,7 +83,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* List element. */
+/* List element. 
+ * 이 구조체는 다양한 데이터 구조를 리스트로 연결하기 위한 범용 노드입니다.
+ * 다른 구조체들이 이 list_elem을 멤버로 포함하여 리스트에 연결될 수 있습니다. */
 struct list_elem {
 	struct list_elem *prev;     /* Previous list element. */
 	struct list_elem *next;     /* Next list element. */
@@ -95,11 +97,26 @@ struct list {
 	struct list_elem tail;      /* List tail. */
 };
 
-/* Converts pointer to list element LIST_ELEM into a pointer to
-   the structure that LIST_ELEM is embedded inside.  Supply the
-   name of the outer structure STRUCT and the member name MEMBER
-   of the list element.  See the big comment at the top of the
-   file for an example. */
+/* list_entry는 리스트 요소를 포함하는 구조체의 주소를 찾는 매크로입니다.
+
+   예를 들어, thread 구조체가 list_elem elem을 멤버로 가지고 있을 때:
+   struct thread {
+     int tid;
+     struct list_elem elem;  // 리스트 연결을 위한 멤버
+     ...
+   }
+
+   list_entry(e, struct thread, elem)을 호출하면:
+   - e는 thread 구조체 안의 elem 멤버를 가리키는 포인터
+   - 이 매크로는 e에서 elem의 위치(offset)를 빼서 
+   - thread 구조체의 시작 주소를 계산해 반환합니다.
+
+   매개변수:
+   - LIST_ELEM: elem 멤버의 포인터 (예: e)
+   - STRUCT: elem을 포함하는 구조체 타입 (예: struct thread) 
+   - MEMBER: 구조체 내의 list_elem 멤버 이름 (예: elem)
+
+   반환값: STRUCT 타입의 포인터 (예: struct thread*) */
 #define list_entry(LIST_ELEM, STRUCT, MEMBER)           \
 	((STRUCT *) ((uint8_t *) &(LIST_ELEM)->next     \
 		- offsetof (STRUCT, MEMBER.next)))
