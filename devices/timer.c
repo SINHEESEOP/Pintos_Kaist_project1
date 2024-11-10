@@ -90,8 +90,15 @@ timer_elapsed (int64_t then) {
 /* 스레드한테 재우라고 알람 울리기 */
 void
 timer_sleep (int64_t ticks) {			// ticks: 대기 시간
-	int64_t start = timer_ticks ();		// 현재 틱 == OS가 부팅된 이후 현재까지의 총 틱 수 == 현재 시간
-	thread_sleep(start + ticks);
+	/* timer_ticks()는 OS 부팅 이후 현재까지의 총 tick 수를 반환
+	   
+	   이전 busy waiting 방식:
+	   while (timer_elapsed (start) < ticks) 
+		thread_yield();
+	   CPU를 계속 점유하면서 yield만 반복하는 비효율적인 구현 */
+	   
+	int64_t start = timer_ticks ();		// 현재 시간(tick) 저장
+	thread_sleep(start + ticks);			// 깨어나야 할 시간(현재 + 대기시간)을 인자로 전달
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -119,11 +126,25 @@ timer_print_stats (void) {
 }
 
 /* Timer interrupt handler. 
-	-> 매 tick마다 호출되며, 대기 중인 스레드 중에서 깨어날 시간이 된 스레드를 찾아 ready_list로 이동시킴 */
+   타이머 인터럽트 핸들러 함수입니다.
+   매 타이머 틱마다 자동으로 호출되며 다음과 같은 작업을 수행합니다:
+   1. 전역 틱 카운터를 증가시킵니다
+   2. 현재 실행 중인 스레드의 CPU 사용량을 업데이트합니다
+   3. sleep 상태인 스레드들을 검사하여 깨어날 시간이 된 스레드들을 ready_list로 이동시킵니다 */
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
+	/* 전역 틱 카운터를 1 증가시킵니다.
+	   이는 시스템이 부팅된 이후 경과된 시간을 측정하는데 사용됩니다. */
 	ticks++;
-	thread_tick ();		// update the cpu usage for running process
+
+	/* thread_tick() 함수를 호출하여 현재 실행 중인 스레드의 
+	   CPU 사용 시간을 업데이트합니다.
+	   이는 스케줄링과 CPU 사용량 통계에 사용됩니다. */
+	thread_tick ();
+
+	/* thread_awake() 함수를 호출하여 sleep 상태인 스레드들을 검사합니다.
+	   현재 tick이 스레드의 깨어날 시간과 일치하거나 지났다면
+	   해당 스레드를 ready 상태로 변경하여 실행 가능하게 만듭니다. */
 	thread_awake(ticks);
 }
 
