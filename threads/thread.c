@@ -181,17 +181,19 @@ thread_print_stats (void) {
    Priority scheduling is the goal of Problem 1-3. */
 tid_t
 thread_create (const char *name, int priority,
-		thread_func *function, void *aux) {
+				thread_func *function, void *aux) {
+	
 	struct thread *t;
 	tid_t tid;
-	struct thread *running_t;
 	enum intr_level old_level;	
 
 	ASSERT (function != NULL);
 
-	/* Allocate thread. */
+	/* 새로운 스레드를 위한 메모리 페이지 할당 */
+	/* palloc_get_page(PAL_ZERO)는 페이지 크기(4KB)의 메모리를 할당하고 0으로 초기화 */
+	/* PAL_ZERO 플래그는 할당된 메모리를 0으로 초기화하라는 의미 */
 	t = palloc_get_page (PAL_ZERO);
-	if (t == NULL)
+	if (t == NULL)  /* 메모리 할당 실패시 에러 반환 */
 		return TID_ERROR;
 
 	/* Initialize thread. */
@@ -209,11 +211,9 @@ thread_create (const char *name, int priority,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
-	old_level = intr_disable();	
 	/* Add to run queue. */
-	thread_unblock (t);											// ready_list에 새로 생성한 쓰레드 삽입하기
+	thread_unblock (t);						// ready_list에 새로 생성한 쓰레드 삽입하기
 	thread_preemption();
-	intr_set_level(old_level);
 
 	return tid;
 }
@@ -374,7 +374,7 @@ thread_set_priority (int new_priority) {
 
 void thread_preemption(void) {
 	if (!list_empty(&ready_list)) {
-		if (thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority)
+		if (thread_current()->priority < (list_entry(list_front(&ready_list), struct thread, elem)->priority))
 			thread_yield();
 	}
 }
@@ -598,6 +598,9 @@ thread_launch (struct thread *th) {
 static void
 do_schedule(int status) {
 	ASSERT (intr_get_level () == INTR_OFF);
+	/* ASSERT는 디버깅을 위한 매크로로, 주어진 조건이 참인지 검증합니다.
+	   여기서는 현재 실행중인 스레드의 상태가 THREAD_RUNNING인지 확인합니다.
+	   만약 조건이 거짓이면 커널이 패닉상태가 되고 에러메시지를 출력합니다. */
 	ASSERT (thread_current()->status == THREAD_RUNNING);
 	while (!list_empty (&destruction_req)) {
 		struct thread *victim =
