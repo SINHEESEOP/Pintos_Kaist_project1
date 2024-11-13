@@ -99,6 +99,7 @@ struct thread {
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
+	struct list_elem all_elem;
 
 	int nice;
 	int recent_cpu;
@@ -154,6 +155,12 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+void increase_recentcpu(void);
+void cal_priority(struct thread *);
+void cal_recentcpu(struct thread *);
+void cal_loadavg(void);
+void update_all_thread(void (*func)(struct thread *));
 
 void do_iret (struct intr_frame *tf);
 

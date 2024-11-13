@@ -198,7 +198,9 @@ lock_acquire (struct lock *lock) {
 
     if (lock->holder != NULL) {
         cur->waiting_lock = lock;
-        donate_priority();
+        // MLFQS 사용 시 우선순위 기부 실행 X
+        if (!thread_mlfqs)
+            donate_priority();
     }
 
     sema_down (&lock->semaphore);
@@ -255,27 +257,29 @@ lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (lock_held_by_current_thread (lock));
 
-    struct thread *cur = thread_current();
-    
-    struct list_elem *e = list_begin(&cur->donations);
-    while (e != list_end(&cur->donations)) {
-        struct thread *donor = list_entry(e, struct thread, donation_elem);
-        struct list_elem *next = list_next(e);
-        if (donor->waiting_lock == lock) {
-            list_remove(e);
-        }
-        e = next;
-    }
+   // MLFQS 사용 시 우선순위 기부 실행 X
+   if (!thread_mlfqs) {
+      struct thread *cur = thread_current();
+      struct list_elem *e = list_begin(&cur->donations);
+      while (e != list_end(&cur->donations)) {
+         struct thread *donor = list_entry(e, struct thread, donation_elem);
+         struct list_elem *next = list_next(e);
+         if (donor->waiting_lock == lock) {
+               list_remove(e);
+         }
+         e = next;
+      }
 
-    cur->priority = cur->original_pri;
-    if (!list_empty(&cur->donations)) {
-        struct thread *highest_donor = list_entry(list_front(&cur->donations), struct thread, donation_elem);
-        if (highest_donor->priority > cur->priority)
+      cur->priority = cur->original_pri;
+      if (!list_empty(&cur->donations)) {
+         struct thread *highest_donor = list_entry(list_front(&cur->donations), struct thread, donation_elem);
+         if (highest_donor->priority > cur->priority)
             cur->priority = highest_donor->priority;
-    }
+      }
+   }
 
-    lock->holder = NULL;
-    sema_up(&lock->semaphore);
+   lock->holder = NULL;
+   sema_up(&lock->semaphore);
 }
 
 /* Returns true if the current thread holds LOCK, false
